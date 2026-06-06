@@ -7,8 +7,8 @@ from agents.llm_agent import llm_agent
 
 
 st.set_page_config(
-    page_title="Intelligent Conversational AI Agent",
-    page_icon="AI",
+    page_title="AI Agent Studio",
+    page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -17,22 +17,30 @@ st.set_page_config(
 MODE_META = {
     "General Chat": {
         "label": "LLM only",
-        "accent": "#2563eb",
+        "accent": "#6366f1",
+        "bg": "rgba(99,102,241,0.08)",
+        "icon": "💬",
         "description": "Answers from model knowledge without external tools.",
     },
     "Web Search": {
         "label": "DuckDuckGo / web",
-        "accent": "#0891b2",
+        "accent": "#06b6d4",
+        "bg": "rgba(6,182,212,0.08)",
+        "icon": "🌐",
         "description": "Retrieves current information and cites web sources.",
     },
     "RAG": {
         "label": "Vector retrieval",
-        "accent": "#16a34a",
+        "accent": "#10b981",
+        "bg": "rgba(16,185,129,0.08)",
+        "icon": "📄",
         "description": "Searches uploaded enterprise documents before answering.",
     },
     "Memory": {
         "label": "Context aware",
-        "accent": "#9333ea",
+        "accent": "#f59e0b",
+        "bg": "rgba(245,158,11,0.08)",
+        "icon": "🧠",
         "description": "Uses previous turns for follow-up questions.",
     },
 }
@@ -45,6 +53,14 @@ def bootstrap_state():
         st.session_state.selected_chat = "Sprint Demo"
     if "documents" not in st.session_state:
         st.session_state.documents = []
+    if "show_route" not in st.session_state:
+        st.session_state.show_route = True
+    if "use_memory" not in st.session_state:
+        st.session_state.use_memory = True
+    if "streaming" not in st.session_state:
+        st.session_state.streaming = True
+    if "top_k" not in st.session_state:
+        st.session_state.top_k = 4
 
 
 def reset_messages():
@@ -52,8 +68,8 @@ def reset_messages():
         {
             "role": "assistant",
             "content": (
-                "Hello. Ask me a general question, request current information, "
-                "or upload documents and ask about them."
+                "👋 Hello! I'm your AI Agent. Ask me anything — general questions, "
+                "current news, or queries about your uploaded documents."
             ),
             "mode": "General Chat",
             "sources": [],
@@ -67,174 +83,264 @@ def inject_css():
     st.markdown(
         """
         <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+        *, *::before, *::after { box-sizing: border-box; }
+
         :root {
-            --surface: #ffffff;
-            --surface-alt: #f7f8fb;
-            --ink: #121826;
-            --muted: #667085;
-            --line: #d8dee9;
-            --blue: #2563eb;
-            --cyan: #0891b2;
-            --green: #16a34a;
-            --purple: #9333ea;
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #22263a;
+            --surface3: #2a2e42;
+            --border: rgba(255,255,255,0.08);
+            --border-bright: rgba(255,255,255,0.16);
+            --text: #e8eaf0;
+            --muted: #8b90a8;
+            --indigo: #6366f1;
+            --cyan: #06b6d4;
+            --green: #10b981;
+            --amber: #f59e0b;
+            --red: #ef4444;
         }
 
-        .stApp {
-            background:
-                linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(255, 255, 255, 1) 45%),
-                radial-gradient(circle at top left, rgba(37, 99, 235, 0.10), transparent 32%);
-            color: var(--ink);
+        html, body, [data-testid="stAppViewContainer"], .stApp {
+            background: var(--bg) !important;
+            color: var(--text) !important;
+            font-family: 'DM Sans', sans-serif !important;
         }
 
+        /* Sidebar */
         [data-testid="stSidebar"] {
-            background: #101827;
-            color: #f8fafc;
+            background: var(--surface) !important;
+            border-right: 1px solid var(--border) !important;
         }
-
-        [data-testid="stSidebar"] * {
-            color: #f8fafc;
-        }
-
-        [data-testid="stSidebar"] .stButton button {
+        [data-testid="stSidebar"] * { color: var(--text) !important; }
+        [data-testid="stSidebar"] .stButton > button {
             width: 100%;
-            border: 1px solid rgba(255,255,255,0.14);
-            background: rgba(255,255,255,0.08);
-            color: #ffffff;
+            background: rgba(99,102,241,0.15) !important;
+            border: 1px solid rgba(99,102,241,0.35) !important;
+            color: #a5b4fc !important;
+            font-family: 'DM Sans', sans-serif !important;
+            font-weight: 600 !important;
+            border-radius: 10px !important;
+            transition: all 0.2s !important;
+        }
+        [data-testid="stSidebar"] .stButton > button:hover {
+            background: rgba(99,102,241,0.28) !important;
+            border-color: rgba(99,102,241,0.6) !important;
+        }
+        [data-testid="stSidebar"] .stSelectbox > div > div {
+            background: var(--surface2) !important;
+            border: 1px solid var(--border-bright) !important;
+            color: var(--text) !important;
+            border-radius: 8px !important;
+        }
+        [data-testid="stSidebar"] .stFileUploader {
+            background: var(--surface2) !important;
+            border-radius: 10px !important;
         }
 
-        .app-header {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 1rem;
-            align-items: end;
-            padding: 1rem 0 0.6rem;
-            border-bottom: 1px solid var(--line);
-            margin-bottom: 1rem;
-        }
+        /* Hide Streamlit chrome */
+        #MainMenu, footer, header { visibility: hidden; }
+        .block-container { padding: 1.5rem 2rem !important; max-width: 100% !important; }
 
-        .app-title {
-            font-size: clamp(1.55rem, 2vw, 2.2rem);
-            font-weight: 800;
-            letter-spacing: 0;
-            line-height: 1.1;
+        /* Header */
+        .agent-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 0 1.2rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1.4rem;
+        }
+        .agent-header-left { display: flex; align-items: center; gap: 1rem; }
+        .agent-logo {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, var(--indigo), var(--cyan));
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 0 24px rgba(99,102,241,0.35);
+        }
+        .agent-title {
+            font-size: 1.6rem; font-weight: 700;
+            letter-spacing: -0.02em; color: var(--text);
             margin: 0;
         }
-
-        .app-subtitle {
-            color: var(--muted);
-            margin-top: 0.35rem;
-            font-size: 0.96rem;
+        .agent-subtitle { color: var(--muted); font-size: 0.88rem; margin: 0; }
+        .online-badge {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: rgba(16,185,129,0.12);
+            border: 1px solid rgba(16,185,129,0.3);
+            color: #34d399;
+            padding: 0.4rem 0.75rem;
+            border-radius: 999px; font-size: 0.8rem; font-weight: 600;
+        }
+        .online-dot {
+            width: 7px; height: 7px;
+            background: #34d399; border-radius: 50%;
+            animation: pulse 1.8s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
         }
 
-        .status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            border: 1px solid #b7c5e8;
-            background: #eef4ff;
-            color: #1849a9;
-            padding: 0.45rem 0.7rem;
-            border-radius: 999px;
-            font-size: 0.82rem;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .metric-grid {
+        /* Mode cards */
+        .mode-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(4, 1fr);
             gap: 0.75rem;
-            margin-bottom: 1rem;
+            margin-bottom: 1.4rem;
         }
-
         .mode-card {
-            border: 1px solid var(--line);
             background: var(--surface);
-            border-radius: 8px;
-            padding: 0.85rem;
-            min-height: 118px;
-            box-shadow: 0 10px 28px rgba(18, 24, 38, 0.05);
-        }
-
-        .mode-card strong {
-            display: block;
-            color: var(--ink);
-            font-size: 0.96rem;
-            margin-bottom: 0.15rem;
-        }
-
-        .mode-card span {
-            color: var(--muted);
-            font-size: 0.82rem;
-            line-height: 1.35;
-        }
-
-        .mode-bar {
-            width: 2.7rem;
-            height: 0.22rem;
-            border-radius: 999px;
-            margin-bottom: 0.65rem;
-        }
-
-        .workspace {
-            border: 1px solid var(--line);
-            background: rgba(255,255,255,0.86);
-            border-radius: 8px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
             padding: 1rem;
-            box-shadow: 0 16px 40px rgba(18, 24, 38, 0.06);
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .mode-card:hover { border-color: var(--border-bright); transform: translateY(-2px); }
+        .mode-icon { font-size: 1.4rem; margin-bottom: 0.5rem; }
+        .mode-name { font-weight: 700; font-size: 0.92rem; margin-bottom: 0.15rem; }
+        .mode-tag {
+            display: inline-block;
+            font-size: 0.7rem; font-weight: 600;
+            padding: 0.15rem 0.45rem;
+            border-radius: 999px; margin-bottom: 0.45rem;
+        }
+        .mode-desc { color: var(--muted); font-size: 0.78rem; line-height: 1.4; }
+
+        /* Chat messages */
+        [data-testid="stChatMessage"] {
+            background: transparent !important;
+            border: none !important;
+        }
+        [data-testid="stChatMessageContent"] {
+            background: var(--surface) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 12px !important;
+            padding: 0.9rem 1.1rem !important;
+            color: var(--text) !important;
+            font-family: 'DM Sans', sans-serif !important;
+            font-size: 0.93rem !important;
+            line-height: 1.65 !important;
         }
 
-        .route-box, .source-box {
-            border: 1px solid var(--line);
-            background: var(--surface-alt);
-            border-radius: 8px;
-            padding: 0.85rem;
-            margin-top: 0.75rem;
+        /* Chat input */
+        [data-testid="stChatInput"] {
+            background: var(--surface) !important;
+            border: 1.5px solid var(--border-bright) !important;
+            border-radius: 14px !important;
+            color: var(--text) !important;
+            font-family: 'DM Sans', sans-serif !important;
+        }
+        [data-testid="stChatInput"]:focus-within {
+            border-color: var(--indigo) !important;
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
         }
 
-        .route-step {
-            display: inline-flex;
-            align-items: center;
-            margin: 0.25rem 0.35rem 0.25rem 0;
-            padding: 0.36rem 0.55rem;
-            border-radius: 999px;
-            border: 1px solid #d1d9e6;
-            background: #ffffff;
-            color: #344054;
-            font-size: 0.78rem;
-            font-weight: 650;
+        /* Route steps */
+        .route-wrap {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.75rem 0.9rem;
+            margin-top: 0.65rem;
         }
-
-        .source-row {
-            border-left: 3px solid var(--blue);
-            padding-left: 0.65rem;
-            margin-top: 0.55rem;
-            color: #344054;
-            font-size: 0.86rem;
-        }
-
         .tiny-label {
             color: var(--muted);
             text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-size: 0.68rem;
-            font-weight: 800;
-            margin-bottom: 0.35rem;
+            letter-spacing: 0.09em;
+            font-size: 0.65rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
         }
+        .route-step {
+            display: inline-flex; align-items: center;
+            padding: 0.28rem 0.6rem;
+            border-radius: 999px;
+            border: 1px solid var(--border-bright);
+            background: var(--surface3);
+            color: var(--text);
+            font-size: 0.74rem; font-weight: 600;
+            margin: 0.2rem 0.3rem 0.2rem 0;
+        }
+        .route-arrow { color: var(--muted); margin: 0 0.05rem; font-size: 0.7rem; }
 
-        .chat-meta {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
+        /* Source box */
+        .source-wrap {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.75rem 0.9rem;
+            margin-top: 0.5rem;
+        }
+        .source-item {
+            border-left: 3px solid var(--indigo);
+            padding: 0.35rem 0.6rem;
+            margin-top: 0.4rem;
             color: var(--muted);
-            font-size: 0.76rem;
-            margin-top: 0.2rem;
+            font-size: 0.81rem;
+            border-radius: 0 4px 4px 0;
+            background: rgba(99,102,241,0.05);
         }
 
-        @media (max-width: 900px) {
-            .app-header, .metric-grid {
-                grid-template-columns: 1fr;
-            }
+        /* Meta line */
+        .chat-meta {
+            display: flex; align-items: center; gap: 0.55rem;
+            font-size: 0.73rem; color: var(--muted);
+            margin-top: 0.35rem;
+        }
+        .chat-meta .mode-pill {
+            font-weight: 700; font-size: 0.73rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 999px;
+        }
+
+        /* Right panel */
+        .panel-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            margin-bottom: 1rem;
+        }
+        .panel-title {
+            font-weight: 700; font-size: 0.88rem;
+            color: var(--text); margin-bottom: 0.7rem;
+            display: flex; align-items: center; gap: 0.45rem;
+        }
+        .stat-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.4rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.83rem;
+        }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-val { font-weight: 700; color: var(--indigo); }
+
+        /* Code block */
+        .stCode { border-radius: 10px !important; }
+        pre {
+            background: var(--surface2) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 10px !important;
+            color: #a5b4fc !important;
+            font-family: 'DM Mono', monospace !important;
+            font-size: 0.8rem !important;
+        }
+
+        /* Progress bar */
+        .stProgress > div > div > div { background: linear-gradient(90deg, var(--indigo), var(--cyan)) !important; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 4px; }
+
+        @media (max-width: 960px) {
+            .mode-grid { grid-template-columns: repeat(2, 1fr); }
         }
         </style>
         """,
@@ -244,11 +350,22 @@ def inject_css():
 
 def sidebar():
     with st.sidebar:
-        st.caption("Workspace")
-        st.title("Agent Console")
+        st.markdown(
+            """
+            <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1.2rem;padding-bottom:0.8rem;border-bottom:1px solid rgba(255,255,255,0.08)">
+                <div style="width:34px;height:34px;background:linear-gradient(135deg,#6366f1,#06b6d4);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;">🤖</div>
+                <div>
+                    <div style="font-weight:700;font-size:0.95rem;">AI Agent Studio</div>
+                    <div style="font-size:0.72rem;color:#8b90a8;">Powered by Groq / Llama</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-        if st.button("New chat", use_container_width=True):
+        if st.button("＋  New Conversation", use_container_width=True):
             reset_messages()
+
         st.selectbox(
             "Conversation",
             ["Sprint Demo", "RAG Test", "Web Search Trial"],
@@ -256,46 +373,57 @@ def sidebar():
         )
 
         st.divider()
-        st.caption("Agent controls")
-        st.toggle("Streaming responses", value=True)
-        st.toggle("Use short-term memory", value=True)
-        st.toggle("Show route decisions", value=True)
-        st.slider("Top-K document chunks", min_value=1, max_value=8, value=4)
+        st.markdown('<div style="font-size:0.72rem;color:#8b90a8;text-transform:uppercase;letter-spacing:0.09em;font-weight:700;margin-bottom:0.5rem;">Agent Controls</div>', unsafe_allow_html=True)
+        st.session_state.streaming = st.toggle("Streaming responses", value=st.session_state.streaming)
+        st.session_state.use_memory = st.toggle("Short-term memory", value=st.session_state.use_memory)
+        st.session_state.show_route = st.toggle("Show route decisions", value=st.session_state.show_route)
+        st.session_state.top_k = st.slider("Top-K document chunks", min_value=1, max_value=8, value=st.session_state.top_k)
 
         st.divider()
-        st.caption("RAG documents")
+        st.markdown('<div style="font-size:0.72rem;color:#8b90a8;text-transform:uppercase;letter-spacing:0.09em;font-weight:700;margin-bottom:0.5rem;">RAG Documents</div>', unsafe_allow_html=True)
         uploaded = st.file_uploader(
-            "Upload enterprise documents",
+            "Upload documents",
             type=["pdf", "docx", "txt", "md"],
             accept_multiple_files=True,
+            label_visibility="collapsed",
         )
         if uploaded:
             st.session_state.documents = [file.name for file in uploaded]
 
         if st.session_state.documents:
             for doc in st.session_state.documents:
-                st.markdown(f"- {doc}")
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;padding:0.3rem 0;color:#e8eaf0;">📎 {doc}</div>',
+                    unsafe_allow_html=True,
+                )
         else:
-            st.info("Upload HR policies, proposals, handbooks, or project docs.")
+            st.markdown(
+                '<div style="font-size:0.78rem;color:#8b90a8;padding:0.5rem 0;">Upload HR policies, proposals, handbooks, or project docs.</div>',
+                unsafe_allow_html=True,
+            )
 
         st.divider()
-        st.caption("Target stack")
         st.markdown(
-            "Streamlit · LangGraph · Groq/Llama · Hugging Face embeddings · FAISS · LangChain"
+            '<div style="font-size:0.72rem;color:#8b90a8;">Streamlit · Groq/Llama · HuggingFace · FAISS · LangChain</div>',
+            unsafe_allow_html=True,
         )
 
 
 def render_header():
     st.markdown(
         """
-        <div class="app-header">
-            <div>
-                <h1 class="app-title">Intelligent Multi-Mode Conversational AI Agent</h1>
-                <div class="app-subtitle">
-                    One Streamlit interface for LLM chat, web search, RAG retrieval, and memory-aware follow-ups.
+        <div class="agent-header">
+            <div class="agent-header-left">
+                <div class="agent-logo">🤖</div>
+                <div>
+                    <h1 class="agent-title">AI Agent Studio</h1>
+                    <p class="agent-subtitle">Multi-mode conversational AI — Chat · Web Search · RAG · Memory</p>
                 </div>
             </div>
-            <div class="status-pill">● Open-source stack ready</div>
+            <div class="online-badge">
+                <div class="online-dot"></div>
+                All systems online
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -303,57 +431,34 @@ def render_header():
 
 
 def render_mode_cards():
-    cols = st.columns(4)
-    mode_list = list(MODE_META.items())
-    for idx, col in enumerate(cols):
-        if idx < len(mode_list):
-            name, meta = mode_list[idx]
-            with col:
-                st.markdown(
-                    f"""
-                    <div class="mode-card">
-                        <div class="mode-bar" style="background:{meta['accent']}"></div>
-                        <strong>{name}</strong>
-                        <span>{meta['label']}</span><br>
-                        <span>{meta['description']}</span>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+    st.markdown('<div class="mode-grid">', unsafe_allow_html=True)
+    for name, meta in MODE_META.items():
+        st.markdown(
+            f"""
+            <div class="mode-card">
+                <div class="mode-icon">{meta['icon']}</div>
+                <div class="mode-name" style="color:{meta['accent']}">{name}</div>
+                <div class="mode-tag" style="background:{meta['bg']};color:{meta['accent']}">{meta['label']}</div>
+                <div class="mode-desc">{meta['description']}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def choose_route(prompt):
     lowered = prompt.lower()
     memory_terms = ["it", "that", "this", "previous", "earlier", "follow up", "who created"]
-    web_terms = [
-        "latest",
-        "current",
-        "today",
-        "recent",
-        "news",
-        "stock",
-        "market",
-        "trend",
-        "2026",
-    ]
-    rag_terms = [
-        "document",
-        "uploaded",
-        "policy",
-        "handbook",
-        "proposal",
-        "company",
-        "leave",
-        "onboarding",
-        "enterprise",
-    ]
+    web_terms = ["latest", "current", "today", "recent", "news", "stock", "market", "trend", "2026"]
+    rag_terms = ["document", "uploaded", "policy", "handbook", "proposal", "company", "leave", "onboarding", "enterprise"]
 
-    uses_memory = len(st.session_state.messages) > 1 and any(term in lowered for term in memory_terms)
+    uses_memory = len(st.session_state.messages) > 1 and any(t in lowered for t in memory_terms)
 
-    if any(term in lowered for term in rag_terms):
+    if any(t in lowered for t in rag_terms):
         mode = "RAG"
         route = ["Receive question", "Check memory", "Retrieve vector chunks", "Ground answer", "Cite documents"]
-    elif any(term in lowered for term in web_terms):
+    elif any(t in lowered for t in web_terms):
         mode = "Web Search"
         route = ["Receive question", "Check memory", "Invoke web search", "Summarize results", "Cite web sources"]
     elif uses_memory:
@@ -368,10 +473,7 @@ def choose_route(prompt):
 
 def sample_sources(mode):
     if mode == "Web Search":
-        return [
-            "DuckDuckGo result: latest public web result summary",
-            "Technology news result: timestamped external context",
-        ]
+        return ["DuckDuckGo result: latest public web result summary", "Technology news result: timestamped external context"]
     if mode == "RAG":
         docs = st.session_state.documents or ["HR Handbook.pdf", "Project Proposal.pdf"]
         return [f"{docs[0]}: relevant chunk 1", "Vector index: top matching enterprise context"]
@@ -380,27 +482,28 @@ def sample_sources(mode):
 
 def draft_response(prompt, mode, history=None):
     try:
-        # Build context based on mode
         context = ""
         if mode == "RAG" and st.session_state.documents:
             context = f"Available documents: {', '.join(st.session_state.documents)}"
-        
-        # Call the router which classifies and generates response
         response, classified_mode = route_query(prompt, context, history)
         return response, classified_mode
     except Exception as e:
-        error_msg = f"Error: {str(e)}"
-        st.error(error_msg)
-        print(f"LLM Error: {error_msg}")
+        st.error(f"Error: {str(e)}")
         raise
 
 
 def render_route(route):
-    steps = "".join(f'<span class="route-step">{step}</span>' for step in route)
+    if not st.session_state.get("show_route", True):
+        return
+    steps = ""
+    for i, step in enumerate(route):
+        steps += f'<span class="route-step">{step}</span>'
+        if i < len(route) - 1:
+            steps += '<span class="route-arrow">›</span>'
     st.markdown(
         f"""
-        <div class="route-box">
-            <div class="tiny-label">Agent decision flow</div>
+        <div class="route-wrap">
+            <div class="tiny-label">Agent Decision Flow</div>
             {steps}
         </div>
         """,
@@ -411,10 +514,10 @@ def render_route(route):
 def render_sources(sources):
     if not sources:
         return
-    rows = "".join(f'<div class="source-row">{source}</div>' for source in sources)
+    rows = "".join(f'<div class="source-item">🔗 {source}</div>' for source in sources)
     st.markdown(
         f"""
-        <div class="source-box">
+        <div class="source-wrap">
             <div class="tiny-label">Sources</div>
             {rows}
         </div>
@@ -424,8 +527,6 @@ def render_sources(sources):
 
 
 def chat_panel():
-    st.markdown('<div class="workspace">', unsafe_allow_html=True)
-
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
@@ -434,7 +535,9 @@ def chat_panel():
                 st.markdown(
                     f"""
                     <div class="chat-meta">
-                        <span style="color:{meta['accent']}; font-weight:800;">{message.get("mode")}</span>
+                        <span class="mode-pill" style="background:{meta['bg']};color:{meta['accent']}">
+                            {meta['icon']} {message.get("mode")}
+                        </span>
                         <span>{message.get("time", "")}</span>
                     </div>
                     """,
@@ -443,49 +546,48 @@ def chat_panel():
                 render_route(message.get("route", []))
                 render_sources(message.get("sources", []))
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
 
 def handle_prompt(prompt):
-    st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": prompt,
-            "time": datetime.now().strftime("%H:%M"),
-        }
-    )
+    st.session_state.messages.append({
+        "role": "user",
+        "content": prompt,
+        "time": datetime.now().strftime("%H:%M"),
+    })
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Build conversation history for context
     history = [
-        {"role": msg["role"], "content": msg["content"]} 
-        for msg in st.session_state.messages[:-1]  # Exclude the current user message
-    ]
-    
+        {"role": msg["role"], "content": msg["content"]}
+        for msg in st.session_state.messages[:-1]
+    ] if st.session_state.get("use_memory", True) else []
+
     mode_map = {"web": "Web Search", "rag": "RAG", "memory": "Memory", "general": "General Chat"}
-    
+
     try:
         with st.chat_message("assistant"):
             placeholder = st.empty()
             response, classified_mode = draft_response(prompt, None, history)
             display_mode = mode_map.get(classified_mode, "General Chat")
-            
-            # Get route based on classified mode
             mode, route = choose_route(prompt)
             sources = sample_sources(display_mode)
-            
-            words = response.split()
-            streamed = ""
-            for word in words:
-                streamed += word + " "
-                placeholder.markdown(streamed)
-                time.sleep(0.015)
+
+            if st.session_state.get("streaming", True):
+                words = response.split()
+                streamed = ""
+                for word in words:
+                    streamed += word + " "
+                    placeholder.markdown(streamed)
+                    time.sleep(0.015)
+            else:
+                placeholder.markdown(response)
+
             meta = MODE_META.get(display_mode, MODE_META["General Chat"])
             st.markdown(
                 f"""
                 <div class="chat-meta">
-                    <span style="color:{meta['accent']}; font-weight:800;">{display_mode}</span>
+                    <span class="mode-pill" style="background:{meta['bg']};color:{meta['accent']}">
+                        {meta['icon']} {display_mode}
+                    </span>
                     <span>{datetime.now().strftime("%H:%M")}</span>
                 </div>
                 """,
@@ -494,19 +596,75 @@ def handle_prompt(prompt):
             render_route(route)
             render_sources(sources)
 
-        st.session_state.messages.append(
-            {
-                "role": "assistant",
-                "content": response,
-                "mode": display_mode,
-                "sources": sources,
-                "route": route,
-                "time": datetime.now().strftime("%H:%M"),
-            }
-        )
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": response,
+            "mode": display_mode,
+            "sources": sources,
+            "route": route,
+            "time": datetime.now().strftime("%H:%M"),
+        })
     except Exception as e:
         st.error(f"Failed to generate response: {str(e)}")
-        print(f"Error in handle_prompt: {str(e)}")
+
+
+def render_right_panel():
+    total_msgs = len(st.session_state.messages)
+    user_msgs = sum(1 for m in st.session_state.messages if m["role"] == "user")
+    modes_used = list({m.get("mode", "General Chat") for m in st.session_state.messages if m["role"] == "assistant"})
+
+    st.markdown(
+        f"""
+        <div class="panel-card">
+            <div class="panel-title">📊 Session Stats</div>
+            <div class="stat-row"><span>Total messages</span><span class="stat-val">{total_msgs}</span></div>
+            <div class="stat-row"><span>Your messages</span><span class="stat-val">{user_msgs}</span></div>
+            <div class="stat-row"><span>Modes activated</span><span class="stat-val">{len(modes_used)}</span></div>
+            <div class="stat-row"><span>Documents loaded</span><span class="stat-val">{len(st.session_state.documents)}</span></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
+        <div class="panel-card">
+            <div class="panel-title">✅ Evaluation Readiness</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.progress(0.86)
+    st.markdown(
+        """
+        <div style="font-size:0.82rem;color:#8b90a8;line-height:1.8;margin-top:0.3rem;">
+        ✔ Three visible modes active<br>
+        ✔ Dynamic route preview<br>
+        ✔ Source-aware answer panel<br>
+        ✔ Session memory through chat history<br>
+        ✔ RAG upload surface
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
+        <div class="panel-card" style="margin-top:1rem;">
+            <div class="panel-title">⚙️ Backend Hooks</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.code(
+        """mode = router.classify(query, history)
+if mode == "web":
+    ctx = web_search.run(query)
+elif mode == "rag":
+    ctx = retriever.search(query, top_k=4)
+answer = llm.generate(query, ctx, history)""",
+        language="python",
+    )
 
 
 def main():
@@ -520,33 +678,12 @@ def main():
 
     with left:
         chat_panel()
-        prompt = st.chat_input("Ask about AI, latest news, uploaded documents, or a follow-up...")
+        prompt = st.chat_input("Ask anything — general, latest news, documents, or a follow-up…")
         if prompt:
             handle_prompt(prompt)
 
     with right:
-        st.subheader("Evaluation Readiness")
-        st.progress(0.86)
-        st.markdown(
-            """
-            - Three visible modes
-            - Dynamic route preview
-            - Source-aware answer panel
-            - Session memory through chat history
-            - RAG upload surface
-            """
-        )
-
-        st.subheader("Backend Hooks")
-        st.code(
-            """mode = router.classify(query, history)
-if mode == "web":
-    context = web_search.run(query)
-elif mode == "rag":
-    context = retriever.search(query, top_k=4)
-answer = llm.generate(query, context, history)""",
-            language="python",
-        )
+        render_right_panel()
 
 
 if __name__ == "__main__":
